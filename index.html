@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flip Tracker">
+<meta name="theme-color" content="#0f172a">
+<title>Flip Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f766e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white' font-family='system-ui'%3E%24%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#0f766e; --accent-soft:#ccfbf1; --good:#047857; --bad:#b91c1c; --warn:#b45309;
+    --chip:#f3f4f6; --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.05);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0b1220; --card:#141c2b; --ink:#e8edf5; --muted:#94a3b8; --line:#243044;
+      --accent:#2dd4bf; --accent-soft:#0f3b38; --good:#34d399; --bad:#f87171; --warn:#fbbf24;
+      --chip:#1c2637; --shadow:none;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink); font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding-bottom:calc(76px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust:100%;
+  }
+  header{
+    position:sticky; top:0; z-index:20; background:var(--bg);
+    padding:calc(10px + env(safe-area-inset-top)) 16px 8px; border-bottom:1px solid var(--line);
+  }
+  header h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  header h1 .sub{font-weight:400;font-size:13px;color:var(--muted)}
+  main{padding:14px 16px 24px;max-width:760px;margin:0 auto}
+  .hidden{display:none !important}
+
+  /* nav */
+  nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:30; display:flex;
+    background:var(--card); border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav button{
+    flex:1; background:none; border:0; color:var(--muted); font:inherit; font-size:11px;
+    padding:9px 2px 8px; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer;
+  }
+  nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  nav button.on{color:var(--accent);font-weight:600}
+
+  /* cards + tiles */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:12px}
+  .card h2{margin:0 0 10px;font-size:14px;font-weight:700;letter-spacing:.01em}
+  .card h2 .note{float:right;font-weight:400;font-size:12px;color:var(--muted)}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 13px}
+  .tile .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+  .tile .v{font-size:22px;font-weight:700;margin-top:3px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .tile .s{font-size:12px;color:var(--muted);margin-top:2px}
+  .pos{color:var(--good)} .neg{color:var(--bad)} .warnc{color:var(--warn)}
+
+  /* chips / segmented */
+  .chips{display:flex;gap:7px;overflow-x:auto;padding:2px 0 10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;border:1px solid var(--line);background:var(--chip);color:var(--muted);
+    border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  @media (prefers-color-scheme: dark){ .chip.on{color:#04201e} }
+
+  /* bars */
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .barrow{display:grid;grid-template-columns:88px 1fr auto;gap:9px;align-items:center;font-size:13px}
+  .barrow .lbl{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .track{background:var(--chip);border-radius:6px;height:9px;overflow:hidden}
+  .fill{height:100%;background:var(--accent);border-radius:6px}
+  .fill.bad{background:var(--bad)}
+  .amt{font-variant-numeric:tabular-nums;font-weight:600;min-width:62px;text-align:right}
+
+  /* trend */
+  .trend{display:flex;align-items:flex-end;gap:5px;height:104px;padding-top:6px}
+  .tcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:3px}
+  .tbar{width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px}
+  .tbar.neg{background:var(--bad);border-radius:0 0 4px 4px}
+  .tlbl{font-size:9.5px;color:var(--muted);white-space:nowrap}
+  .midline{border-top:1px dashed var(--line);margin:0 0 4px}
+
+  /* list */
+  .item{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:12px 13px;margin-bottom:9px;display:flex;gap:11px;align-items:flex-start;cursor:pointer}
+  .item .body{flex:1;min-width:0}
+  .item .nm{font-weight:650;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .meta{font-size:12.5px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .right{text-align:right;flex-shrink:0}
+  .item .right .p{font-weight:700;font-variant-numeric:tabular-nums}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    padding:3px 7px;border-radius:6px;background:var(--chip);color:var(--muted);margin-top:5px}
+  .badge.stock{background:var(--accent-soft);color:var(--accent)}
+  .badge.listed{background:#fef3c7;color:#92400e}
+  .badge.sold{background:#dcfce7;color:#166534}
+  @media (prefers-color-scheme: dark){
+    .badge.listed{background:#422006;color:#fbbf24}
+    .badge.sold{background:#052e1a;color:#4ade80}
+  }
+  .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px}
+
+  /* forms */
+  label{display:block;font-size:12px;font-weight:650;color:var(--muted);margin:12px 0 5px;letter-spacing:.02em}
+  input,select,textarea,button{font:inherit;color:var(--ink)}
+  input,select,textarea{
+    width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card);
+    font-size:16px; appearance:none;
+  }
+  textarea{min-height:70px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 18px) 21px,calc(100% - 13px) 21px;background-size:5px 5px;background-repeat:no-repeat;padding-right:36px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--accent);color:#fff;
+    font-weight:700;font-size:16px;cursor:pointer;margin-top:14px}
+  @media (prefers-color-scheme: dark){ .btn{color:#04201e} }
+  .btn.ghost{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+  .btn.danger{background:var(--card);border:1px solid var(--bad);color:var(--bad)}
+  .btn.small{padding:11px;font-size:14px;margin-top:8px}
+  .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .calc{background:var(--chip);border-radius:10px;padding:11px 12px;margin-top:14px;font-size:14px}
+  .calc div{display:flex;justify-content:space-between;padding:2px 0}
+  .calc .tot{font-weight:700;border-top:1px solid var(--line);margin-top:5px;padding-top:6px}
+
+  /* sheet */
+  .sheet{position:fixed;inset:0;z-index:50;background:rgba(2,6,23,.5);display:flex;align-items:flex-end;justify-content:center}
+  .sheet .inner{background:var(--bg);width:100%;max-width:760px;max-height:92vh;overflow-y:auto;
+    border-radius:18px 18px 0 0;padding:8px 16px calc(28px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+  .grab{width:38px;height:4px;background:var(--line);border-radius:2px;margin:8px auto 4px}
+  .sheet h2{font-size:18px;margin:6px 0 0}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom));
+    background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:60;
+    box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  .nudge{background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent);
+    border-radius:12px;padding:11px 13px;font-size:13px;font-weight:600;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span id="title">Dashboard</span> <span class="sub" id="subtitle"></span></h1>
+</header>
+
+<main>
+  <!-- DASHBOARD -->
+  <section id="v-dash">
+    <div id="backupNudge" class="nudge hidden"></div>
+    <div class="chips" id="periodChips">
+      <button class="chip on" data-p="all">All time</button>
+      <button class="chip" data-p="30">Last 30 days</button>
+      <button class="chip" data-p="90">Last 90 days</button>
+      <button class="chip" data-p="ytd">This year</button>
+    </div>
+    <div class="tiles" id="tilesMoney"></div>
+    <div class="card"><h2>Stock &amp; projections</h2><div class="tiles" id="tilesProj" style="margin:0"></div></div>
+    <div class="card"><h2>Velocity</h2><div class="tiles" id="tilesVel" style="margin:0"></div></div>
+    <div class="card">
+      <h2>Net profit by month <span class="note" id="trendNote"></span></h2>
+      <div class="midline"></div>
+      <div class="trend" id="trend"></div>
+    </div>
+    <div class="card"><h2>Ageing stock <span class="note">unsold, by days held</span></h2><div class="bars" id="ageing"></div></div>
+    <div class="card"><h2>Profit by category</h2><div class="bars" id="byCat"></div></div>
+    <div class="card"><h2>Profit by source</h2><div class="bars" id="bySrc"></div></div>
+    <div class="card"><h2>Best flips</h2><div class="bars" id="best"></div></div>
+    <div class="card"><h2>Worst flips</h2><div class="bars" id="worst"></div></div>
+  </section>
+
+  <!-- ITEMS -->
+  <section id="v-items" class="hidden">
+    <input id="search" type="search" placeholder="Search items, categories, notes…" style="margin-bottom:10px">
+    <div class="chips" id="statusChips">
+      <button class="chip on" data-s="all">All</button>
+      <button class="chip" data-s="stock">In stock</button>
+      <button class="chip" data-s="listed">Listed</button>
+      <button class="chip" data-s="sold">Sold</button>
+    </div>
+    <select id="sortBy" style="margin-bottom:12px">
+      <option value="recent">Sort: most recent</option>
+      <option value="profit">Sort: highest profit</option>
+      <option value="oldest">Sort: oldest held</option>
+      <option value="name">Sort: name A–Z</option>
+    </select>
+    <div id="itemList"></div>
+  </section>
+
+  <!-- ADD -->
+  <section id="v-add" class="hidden">
+    <div class="card">
+      <h2>Log a purchase</h2>
+      <form id="addForm" autocomplete="off">
+        <label for="a_name">Item</label>
+        <input id="a_name" required placeholder="e.g. Vintage Pyrex bowl">
+        <div class="row2">
+          <div>
+            <label for="a_buyPrice">Paid</label>
+            <input id="a_buyPrice" type="number" inputmode="decimal" step="0.01" min="0" required placeholder="0.00">
+          </div>
+          <div>
+            <label for="a_buyDate">Date bought</label>
+            <input id="a_buyDate" type="date" required>
+          </div>
+        </div>
+        <div class="row2">
+          <div>
+            <label for="a_category">Category</label>
+            <input id="a_category" list="catList" placeholder="Homewares">
+          </div>
+          <div>
+            <label for="a_source">Bought from</label>
+            <input id="a_source" list="srcList" placeholder="Op shop">
+          </div>
+        </div>
+        <label for="a_listPrice">Target / listing price <span style="font-weight:400">(optional)</span></label>
+        <input id="a_listPrice" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00">
+        <label for="a_notes">Notes <span style="font-weight:400">(optional)</span></label>
+        <textarea id="a_notes" placeholder="Condition, measurements, where it's stored…"></textarea>
+        <button class="btn" type="submit">Add to stock</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- BACKUP / SETTINGS -->
+  <section id="v-more" class="hidden">
+    <div class="card">
+      <h2>Backup</h2>
+      <p class="hint" style="margin-top:0">Your data lives only on this device, in this browser. Back up regularly — clearing browser data wipes it.</p>
+      <div id="backupStatus" class="hint"></div>
+      <button class="btn" id="expJson">Download backup (JSON)</button>
+      <button class="btn ghost" id="expCsv">Download spreadsheet (CSV)</button>
+    </div>
+    <div class="card">
+      <h2>Restore</h2>
+      <p class="hint" style="margin-top:0">Load a JSON or CSV backup. Choose whether to merge with what's here or replace it.</p>
+      <label for="impMode">On restore</label>
+      <select id="impMode">
+        <option value="merge">Merge — add items that aren't already here</option>
+        <option value="replace">Replace — wipe and load the file</option>
+      </select>
+      <label for="impFile">Backup file</label>
+      <input id="impFile" type="file" accept=".json,.csv,application/json,text/csv">
+    </div>
+    <div class="card">
+      <h2>Settings</h2>
+      <label for="s_cur">Currency</label>
+      <select id="s_cur">
+        <option value="AUD">AUD $</option><option value="NZD">NZD $</option><option value="USD">USD $</option>
+        <option value="GBP">GBP £</option><option value="EUR">EUR €</option><option value="CAD">CAD $</option>
+      </select>
+      <label for="s_fee">Default selling fee %</label>
+      <input id="s_fee" type="number" inputmode="decimal" step="0.1" min="0" max="100">
+      <p class="hint">Used to estimate fees on projected profit for items you haven't sold yet.</p>
+      <button class="btn ghost small" id="saveSettings">Save settings</button>
+    </div>
+    <div class="card">
+      <h2>Data</h2>
+      <div class="hint" id="dataStats"></div>
+      <button class="btn ghost small" id="loadDemo">Load sample data</button>
+      <button class="btn danger small" id="wipe">Delete everything</button>
+    </div>
+    <p class="hint" style="text-align:center">Flip Tracker · add to your home screen for a full-screen app</p>
+  </section>
+</main>
+
+<datalist id="catList"></datalist>
+<datalist id="srcList"></datalist>
+<datalist id="platList"></datalist>
+
+<nav>
+  <button data-v="dash" class="on"><svg viewBox="0 0 24 24"><path d="M3 13h6v8H3zM9 3h6v18H9zM15 9h6v12h-6z"/></svg>Dashboard</button>
+  <button data-v="items"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Items</button>
+  <button data-v="add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add</button>
+  <button data-v="more"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4M4 17v3h16v-3"/></svg>Backup</button>
+</nav>
+
+<div id="sheetHost"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- storage ---------- */
+var KEY='fliptracker.v1';
+var state={items:[],settings:{currency:'AUD',feePct:0},lastBackup:null};
+
+function load(){
+  try{
+    var raw=localStorage.getItem(KEY);
+    if(raw){
+      var d=JSON.parse(raw);
+      state.items=Array.isArray(d.items)?d.items:[];
+      state.settings=Object.assign({currency:'AUD',feePct:0},d.settings||{});
+      state.lastBackup=d.lastBackup||null;
+    }
+  }catch(e){ console.warn('load failed',e); }
+}
+function save(){
+  try{ localStorage.setItem(KEY,JSON.stringify(state)); }
+  catch(e){ toast('Could not save — storage full or blocked'); }
+}
+
+/* ---------- helpers ---------- */
+var SYM={AUD:'$',NZD:'$',USD:'$',CAD:'$',GBP:'£',EUR:'€'};
+function n(v){ v=parseFloat(v); return isFinite(v)?v:0; }
+function money(v){
+  var s=SYM[state.settings.currency]||'$';
+  var neg=v<0, a=Math.abs(v);
+  var str=a>=1000?a.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,','):a.toFixed(2);
+  return (neg?'-':'')+s+str;
+}
+function pct(v){ return (isFinite(v)?(v>=0?'':'')+v.toFixed(0):'0')+'%'; }
+function today(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function pad(x){ return (x<10?'0':'')+x; }
+function parseDate(s){ if(!s) return null; var p=String(s).slice(0,10).split('-'); if(p.length!==3) return null;
+  var d=new Date(+p[0],+p[1]-1,+p[2]); return isNaN(d.getTime())?null:d; }
+function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+function fmtDate(s){ var d=parseDate(s); if(!d) return '—';
+  var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate()+' '+m[d.getMonth()]+' '+String(d.getFullYear()).slice(2); }
+function uid(){ return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function el(id){ return document.getElementById(id); }
+
+/* ---------- item maths ---------- */
+function status(it){ if(it.sellDate||n(it.sellPrice)>0) return 'sold'; if(it.listDate||n(it.listPrice)>0) return 'listed'; return 'stock'; }
+function cost(it){ return n(it.buyPrice)+n(it.refurb); }
+function outlay(it){ return cost(it)+n(it.fees)+n(it.postage); }           // everything paid out
+function profit(it){ return status(it)==='sold' ? n(it.sellPrice)-outlay(it) : 0; }
+function roi(it){ var c=outlay(it); return c>0 ? profit(it)/c*100 : 0; }
+function projected(it){                                                    // expected profit if it sells at list price
+  var lp=n(it.listPrice); if(lp<=0) return 0;
+  var estFee=lp*n(state.settings.feePct)/100;
+  return lp-cost(it)-estFee;
+}
+function heldDays(it){
+  var b=parseDate(it.buyDate); if(!b) return 0;
+  var end=status(it)==='sold'?(parseDate(it.sellDate)||new Date()):new Date();
+  return Math.max(0,daysBetween(b,end));
+}
+function inPeriod(dateStr,period){
+  if(period==='all') return true;
+  var d=parseDate(dateStr); if(!d) return false;
+  var now=new Date();
+  if(period==='ytd') return d.getFullYear()===now.getFullYear();
+  var cut=new Date(); cut.setDate(cut.getDate()-parseInt(period,10));
+  return d>=cut;
+}
+
+/* ---------- view routing ---------- */
+var view='dash', period='all', statusFilter='all', sortBy='recent', query='';
+var TITLES={dash:'Dashboard',items:'Items',add:'Add purchase',more:'Backup & settings'};
+
+function go(v){
+  view=v;
+  ['dash','items','add','more'].forEach(function(k){ el('v-'+k).classList.toggle('hidden',k!==v); });
+  Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){ b.classList.toggle('on',b.dataset.v===v); });
+  el('title').textContent=TITLES[v];
+  window.scrollTo(0,0);
+  render();
+}
+
+/* ---------- render ---------- */
+function render(){
+  if(view==='dash') renderDash();
+  if(view==='items') renderItems();
+  if(view==='more') renderMore();
+  el('subtitle').textContent = view==='dash'
+    ? state.items.length+' item'+(state.items.length===1?'':'s')
+    : '';
+  refreshDatalists();
+}
+
+function tile(k,v,s,cls){
+  return '<div class="tile"><div class="k">'+esc(k)+'</div><div class="v '+(cls||'')+'">'+v+'</div>'+
+         (s?'<div class="s">'+s+'</div>':'')+'</div>';
+}
+function sign(v){ return v>0?'pos':(v<0?'neg':''); }
+
+function renderDash(){
+  var items=state.items;
+  var sold=items.filter(function(i){ return status(i)==='sold' && inPeriod(i.sellDate,period); });
+  var bought=items.filter(function(i){ return inPeriod(i.buyDate,period); });
+  var unsold=items.filter(function(i){ return status(i)!=='sold'; });
+
+  var revenue=sold.reduce(function(a,i){ return a+n(i.sellPrice); },0);
+  var soldCost=sold.reduce(function(a,i){ return a+outlay(i); },0);
+  var net=revenue-soldCost;
+  var spendPeriod=bought.reduce(function(a,i){ return a+cost(i); },0);
+  var roiPct=soldCost>0?net/soldCost*100:0;
+  var margin=revenue>0?net/revenue*100:0;
+  var avgProfit=sold.length?net/sold.length:0;
+
+  el('tilesMoney').innerHTML=
+    tile('Net profit',money(net),sold.length+' sold · avg '+money(avgProfit),sign(net))+
+    tile('Return on cost',pct(roiPct),'margin '+pct(margin),sign(net))+
+    tile('Revenue',money(revenue),'money in')+
+    tile('Spend',money(spendPeriod),bought.length+' bought');
+
+  var tiedUp=unsold.reduce(function(a,i){ return a+cost(i); },0);
+  var proj=unsold.reduce(function(a,i){ return a+projected(i); },0);
+  var listedCount=unsold.filter(function(i){ return status(i)==='listed'; }).length;
+  var noPrice=unsold.filter(function(i){ return n(i.listPrice)<=0; }).length;
+
+  // run-rate: net profit over the last 90 days, scaled to a month
+  var last90=items.filter(function(i){ return status(i)==='sold' && inPeriod(i.sellDate,'90'); })
+                  .reduce(function(a,i){ return a+profit(i); },0);
+  var runRate=last90/3;
+
+  el('tilesProj').innerHTML=
+    tile('Cash tied up',money(tiedUp),unsold.length+' unsold ('+listedCount+' listed)')+
+    tile('Projected profit',money(proj),noPrice?noPrice+' with no target price':'at your listing prices',sign(proj))+
+    tile('Run rate',money(runRate)+'/mo','based on last 90 days',sign(runRate))+
+    tile('Stock value',money(unsold.reduce(function(a,i){ return a+(n(i.listPrice)||cost(i)); },0)),'at list price');
+
+  var sellDays=sold.map(heldDays);
+  var avgDays=sellDays.length?Math.round(sellDays.reduce(function(a,b){return a+b;},0)/sellDays.length):0;
+  var fastest=sellDays.length?Math.min.apply(null,sellDays):0;
+  var thisMonth=items.filter(function(i){ return status(i)==='sold' && sameMonth(i.sellDate,new Date()); });
+  var boughtMonth=items.filter(function(i){ return sameMonth(i.buyDate,new Date()); });
+  var sellThrough=items.length?sold.length/items.length*100:0;
+
+  el('tilesVel').innerHTML=
+    tile('Avg days to sell',sellDays.length?avgDays:'—',sellDays.length?'fastest '+fastest+'d':'no sales yet')+
+    tile('Sell-through',pct(sellThrough),'of all items logged')+
+    tile('Sold this month',thisMonth.length,money(thisMonth.reduce(function(a,i){return a+profit(i);},0))+' profit')+
+    tile('Bought this month',boughtMonth.length,money(boughtMonth.reduce(function(a,i){return a+cost(i);},0))+' out');
+
+  renderTrend();
+  renderAgeing(unsold);
+  renderBreakdown('byCat','category',sold);
+  renderBreakdown('bySrc','source',sold);
+  renderTop('best',sold,true);
+  renderTop('worst',sold,false);
+  renderNudge();
+}
+
+function sameMonth(s,d){ var p=parseDate(s); return !!p && p.getFullYear()===d.getFullYear() && p.getMonth()===d.getMonth(); }
+
+function renderTrend(){
+  var months=[], now=new Date();
+  for(var i=11;i>=0;i--){
+    var d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({y:d.getFullYear(),m:d.getMonth(),v:0});
+  }
+  state.items.forEach(function(it){
+    if(status(it)!=='sold') return;
+    var d=parseDate(it.sellDate); if(!d) return;
+    for(var i=0;i<months.length;i++){
+      if(months[i].y===d.getFullYear()&&months[i].m===d.getMonth()){ months[i].v+=profit(it); break; }
+    }
+  });
+  var max=Math.max.apply(null,months.map(function(x){ return Math.abs(x.v); }).concat([1]));
+  var names=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  var total=months.reduce(function(a,b){ return a+b.v; },0);
+  el('trendNote').textContent='12 mo · '+money(total);
+  el('trend').innerHTML=months.map(function(x){
+    var h=Math.max(2,Math.round(Math.abs(x.v)/max*72));
+    return '<div class="tcol" title="'+money(x.v)+'">'+
+      '<div class="tbar'+(x.v<0?' neg':'')+'" style="height:'+h+'px"></div>'+
+      '<div class="tlbl">'+names[x.m]+'</div></div>';
+  }).join('');
+}
+
+function renderAgeing(unsold){
+  var buckets=[{l:'0–30 days',min:0,max:30},{l:'31–60 days',min:31,max:60},
+               {l:'61–90 days',min:61,max:90},{l:'90+ days',min:91,max:1e9}];
+  buckets.forEach(function(b){ b.items=unsold.filter(function(i){ var d=heldDays(i); return d>=b.min&&d<=b.max; }); });
+  var max=Math.max.apply(null,buckets.map(function(b){ return b.items.length; }).concat([1]));
+  el('ageing').innerHTML=unsold.length? buckets.map(function(b,idx){
+    var val=b.items.reduce(function(a,i){ return a+cost(i); },0);
+    return bar(b.l,b.items.length/max*100,b.items.length+' · '+money(val),idx===3);
+  }).join('') : '<div class="hint">Nothing in stock.</div>';
+}
+
+function bar(label,widthPct,amount,isBad){
+  return '<div class="barrow"><div class="lbl">'+esc(label)+'</div>'+
+    '<div class="track"><div class="fill'+(isBad?' bad':'')+'" style="width:'+Math.max(2,Math.min(100,widthPct))+'%"></div></div>'+
+    '<div class="amt">'+amount+'</div></div>';
+}
+
+function renderBreakdown(target,field,sold){
+  var map={};
+  sold.forEach(function(i){
+    var k=(i[field]||'Uncategorised').trim()||'Uncategorised';
+    map[k]=(map[k]||0)+profit(i);
+  });
+  var rows=Object.keys(map).map(function(k){ return {k:k,v:map[k]}; })
+    .sort(function(a,b){ return b.v-a.v; }).slice(0,8);
+  var max=Math.max.apply(null,rows.map(function(r){ return Math.abs(r.v); }).concat([1]));
+  el(target).innerHTML=rows.length? rows.map(function(r){
+    return bar(r.k,Math.abs(r.v)/max*100,money(r.v),r.v<0);
+  }).join('') : '<div class="hint">No sales in this period yet.</div>';
+}
+
+function renderTop(target,sold,best){
+  var rows=sold.slice().sort(function(a,b){ return best? profit(b)-profit(a) : profit(a)-profit(b); }).slice(0,5);
+  if(!best) rows=rows.filter(function(i){ return profit(i)<profit(rows[rows.length-1])+1e9; });
+  var max=Math.max.apply(null,rows.map(function(r){ return Math.abs(profit(r)); }).concat([1]));
+  el(target).innerHTML=rows.length? rows.map(function(r){
+    return bar(r.name,Math.abs(profit(r))/max*100,money(profit(r))+' <span style="color:var(--muted);font-weight:400">'+pct(roi(r))+'</span>',profit(r)<0);
+  }).join('') : '<div class="hint">No sales in this period yet.</div>';
+}
+
+function renderNudge(){
+  var box=el('backupNudge');
+  if(!state.items.length){ box.classList.add('hidden'); return; }
+  var days=state.lastBackup? daysBetween(new Date(state.lastBackup),new Date()) : 999;
+  if(days>=14){
+    box.classList.remove('hidden');
+    box.textContent = state.lastBackup
+      ? 'It has been '+days+' days since your last backup. Tap Backup below.'
+      : 'You have not backed up yet. Tap Backup below to download a copy.';
+  } else box.classList.add('hidden');
+}
+
+/* ---------- items list ---------- */
+function renderItems(){
+  var q=query.toLowerCase();
+  var rows=state.items.filter(function(i){
+    if(statusFilter!=='all' && status(i)!==statusFilter) return false;
+    if(!q) return true;
+    return [i.name,i.category,i.source,i.platform,i.notes].join(' ').toLowerCase().indexOf(q)>=0;
+  });
+  rows.sort(function(a,b){
+    if(sortBy==='profit') return profit(b)-profit(a);
+    if(sortBy==='name') return String(a.name).localeCompare(String(b.name));
+    if(sortBy==='oldest') return String(a.buyDate||'').localeCompare(String(b.buyDate||''));
+    return String(b.sellDate||b.buyDate||'').localeCompare(String(a.sellDate||a.buyDate||''));
+  });
+
+  el('itemList').innerHTML = rows.length ? rows.map(function(i){
+    var st=status(i), p=profit(i), d=heldDays(i);
+    var right = st==='sold'
+      ? '<div class="p '+sign(p)+'">'+money(p)+'</div><div class="s" style="font-size:11.5px;color:var(--muted)">'+pct(roi(i))+'</div>'
+      : '<div class="p">'+money(cost(i))+'</div><div class="s" style="font-size:11.5px;color:var(--muted)">'+(n(i.listPrice)>0?'ask '+money(i.listPrice):'no price')+'</div>';
+    var meta = st==='sold'
+      ? fmtDate(i.buyDate)+' → '+fmtDate(i.sellDate)+' · '+d+'d'
+      : (i.category||'Uncategorised')+' · held '+d+'d';
+    return '<div class="item" data-id="'+i.id+'"><div class="body">'+
+      '<div class="nm">'+esc(i.name)+'</div>'+
+      '<div class="meta">'+esc(meta)+'</div>'+
+      '<span class="badge '+st+'">'+(st==='stock'?'In stock':st)+'</span>'+
+      '</div><div class="right">'+right+'</div></div>';
+  }).join('') : '<div class="empty">Nothing here yet.<br>Tap <strong>Add</strong> to log your first purchase.</div>';
+}
+
+/* ---------- item sheet ---------- */
+function openItem(id){
+  var it=state.items.filter(function(x){ return x.id===id; })[0];
+  if(!it) return;
+  var st=status(it);
+  var h='<div class="sheet"><div class="inner">'+
+    '<div class="grab"></div><h2>'+esc(it.name)+'</h2>'+
+    '<p class="hint" style="margin-top:4px">'+(st==='sold'
+        ? 'Sold '+fmtDate(it.sellDate)+' after '+heldDays(it)+' days'
+        : 'Bought '+fmtDate(it.buyDate)+' · held '+heldDays(it)+' days')+'</p>'+
+    '<form id="editForm">'+
+    '<label>Item</label><input id="e_name" value="'+esc(it.name)+'" required>'+
+    '<div class="row2">'+
+      '<div><label>Paid</label><input id="e_buyPrice" type="number" inputmode="decimal" step="0.01" min="0" value="'+n(it.buyPrice)+'"></div>'+
+      '<div><label>Date bought</label><input id="e_buyDate" type="date" value="'+esc(it.buyDate||'')+'"></div>'+
+    '</div>'+
+    '<div class="row2">'+
+      '<div><label>Category</label><input id="e_category" list="catList" value="'+esc(it.category||'')+'"></div>'+
+      '<div><label>Bought from</label><input id="e_source" list="srcList" value="'+esc(it.source||'')+'"></div>'+
+    '</div>'+
+    '<div class="row2">'+
+      '<div><label>Repairs / cleaning</label><input id="e_refurb" type="number" inputmode="decimal" step="0.01" min="0" value="'+n(it.refurb)+'"></div>'+
+      '<div><label>Listed price</label><input id="e_listPrice" type="number" inputmode="decimal" step="0.01" min="0" value="'+n(it.listPrice)+'"></div>'+
+    '</div>'+
+    '<label>Date listed</label><input id="e_listDate" type="date" value="'+esc(it.listDate||'')+'">'+
+    '<div class="row2">'+
+      '<div><label>Sold for</label><input id="e_sellPrice" type="number" inputmode="decimal" step="0.01" min="0" value="'+n(it.sellPrice)+'"></div>'+
+      '<div><label>Date sold</label><input id="e_sellDate" type="date" value="'+esc(it.sellDate||'')+'"></div>'+
+    '</div>'+
+    '<div class="row2">'+
+      '<div><label>Selling fees</label><input id="e_fees" type="number" inputmode="decimal" step="0.01" min="0" value="'+n(it.fees)+'"></div>'+
+      '<div><label>Postage / delivery</label><input id="e_postage" type="number" inputmode="decimal" step="0.01" min="0" value="'+n(it.postage)+'"></div>'+
+    '</div>'+
+    '<label>Sold on</label><input id="e_platform" list="platList" value="'+esc(it.platform||'')+'">'+
+    '<label>Notes</label><textarea id="e_notes">'+esc(it.notes||'')+'</textarea>'+
+    '<div class="calc" id="calcBox"></div>'+
+    '<button class="btn" type="submit">Save changes</button>'+
+    '<div class="btnrow">'+
+      '<button class="btn ghost small" type="button" id="markSold">Sold today</button>'+
+      '<button class="btn ghost small" type="button" id="closeSheet">Close</button>'+
+    '</div>'+
+    '<button class="btn danger small" type="button" id="delItem">Delete item</button>'+
+    '</form></div></div>';
+  el('sheetHost').innerHTML=h;
+
+  function draft(){
+    return {buyPrice:el('e_buyPrice').value,refurb:el('e_refurb').value,fees:el('e_fees').value,
+            postage:el('e_postage').value,sellPrice:el('e_sellPrice').value,listPrice:el('e_listPrice').value,
+            sellDate:el('e_sellDate').value,listDate:el('e_listDate').value};
+  }
+  function updateCalc(){
+    var d=draft(), out=outlay(d), sp=n(d.sellPrice);
+    var isSold=status(d)==='sold';
+    var p=isSold?sp-out:projected(d);
+    el('calcBox').innerHTML=
+      '<div><span>Total outlay</span><span>'+money(out)+'</span></div>'+
+      '<div><span>'+(isSold?'Sold for':'Target price')+'</span><span>'+money(isSold?sp:n(d.listPrice))+'</span></div>'+
+      '<div class="tot"><span>'+(isSold?'Net profit':'Projected profit')+'</span>'+
+      '<span class="'+sign(p)+'">'+money(p)+(out>0?'  ·  '+pct(p/out*100):'')+'</span></div>';
+  }
+  ['e_buyPrice','e_refurb','e_fees','e_postage','e_sellPrice','e_listPrice','e_sellDate','e_listDate']
+    .forEach(function(id){ el(id).addEventListener('input',updateCalc); });
+  updateCalc();
+
+  el('markSold').addEventListener('click',function(){
+    if(!el('e_sellDate').value) el('e_sellDate').value=today();
+    if(!n(el('e_sellPrice').value) && n(el('e_listPrice').value)) el('e_sellPrice').value=n(el('e_listPrice').value);
+    updateCalc(); el('e_sellPrice').focus();
+  });
+  el('closeSheet').addEventListener('click',closeSheet);
+  el('delItem').addEventListener('click',function(){
+    if(!confirm('Delete "'+it.name+'"? This cannot be undone.')) return;
+    state.items=state.items.filter(function(x){ return x.id!==it.id; });
+    save(); closeSheet(); render(); toast('Deleted');
+  });
+  el('editForm').addEventListener('submit',function(ev){
+    ev.preventDefault();
+    it.name=el('e_name').value.trim()||it.name;
+    it.buyPrice=n(el('e_buyPrice').value); it.buyDate=el('e_buyDate').value;
+    it.category=el('e_category').value.trim(); it.source=el('e_source').value.trim();
+    it.refurb=n(el('e_refurb').value); it.listPrice=n(el('e_listPrice').value); it.listDate=el('e_listDate').value;
+    it.sellPrice=n(el('e_sellPrice').value); it.sellDate=el('e_sellDate').value;
+    it.fees=n(el('e_fees').value); it.postage=n(el('e_postage').value);
+    it.platform=el('e_platform').value.trim(); it.notes=el('e_notes').value;
+    save(); closeSheet(); render(); toast('Saved');
+  });
+  document.querySelector('.sheet').addEventListener('click',function(ev){ if(ev.target===this) closeSheet(); });
+}
+function closeSheet(){ el('sheetHost').innerHTML=''; }
+
+/* ---------- datalists ---------- */
+var DEF_CAT=['Homewares','Furniture','Clothing','Books','Tools','Electronics','Toys','Kitchen','Collectables','Sporting','Jewellery','Art'];
+var DEF_SRC=['Op shop','Facebook Marketplace','Garage sale','Estate sale','Auction','Gumtree','eBay','Hard rubbish','Wholesale'];
+var DEF_PLAT=['Facebook Marketplace','eBay','Gumtree','Etsy','Depop','Market stall','In person'];
+function refreshDatalists(){
+  fill('catList',DEF_CAT,'category'); fill('srcList',DEF_SRC,'source'); fill('platList',DEF_PLAT,'platform');
+}
+function fill(id,defaults,field){
+  var seen={}, out=[];
+  state.items.forEach(function(i){ var v=(i[field]||'').trim(); if(v&&!seen[v.toLowerCase()]){ seen[v.toLowerCase()]=1; out.push(v);} });
+  defaults.forEach(function(v){ if(!seen[v.toLowerCase()]) out.push(v); });
+  el(id).innerHTML=out.map(function(v){ return '<option value="'+esc(v)+'">'; }).join('');
+}
+
+/* ---------- backup ---------- */
+var FIELDS=['id','name','category','source','buyDate','buyPrice','refurb','listDate','listPrice',
+            'sellDate','sellPrice','fees','postage','platform','notes'];
+
+function download(filename,text,mime){
+  var blob=new Blob([text],{type:mime||'text/plain;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download=filename; a.style.display='none';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },1500);
+  state.lastBackup=new Date().toISOString(); save(); renderMore(); renderNudge();
+}
+function stamp(){ var d=new Date(); return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate()); }
+
+function toCSV(){
+  var head=FIELDS.concat(['status','totalOutlay','netProfit','roiPct','daysHeld']);
+  var lines=[head.join(',')];
+  state.items.forEach(function(i){
+    var row=FIELDS.map(function(f){ return csvCell(i[f]); });
+    row.push(csvCell(status(i)),csvCell(outlay(i).toFixed(2)),csvCell(profit(i).toFixed(2)),
+             csvCell(roi(i).toFixed(1)),csvCell(heldDays(i)));
+    lines.push(row.join(','));
+  });
+  return lines.join('\r\n');
+}
+function csvCell(v){
+  if(v==null) v='';
+  v=String(v);
+  return /[",\r\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+function parseCSV(text){
+  var rows=[],row=[],cur='',q=false;
+  text=text.replace(/^﻿/,'');
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else q=false; }
+      else cur+=c;
+    } else {
+      if(c==='"') q=true;
+      else if(c===','){ row.push(cur); cur=''; }
+      else if(c==='\n'){ row.push(cur); cur=''; rows.push(row); row=[]; }
+      else if(c!=='\r') cur+=c;
+    }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(function(r){ return r.length>1||r[0]!==''; });
+}
+
+function importItems(incoming,mode){
+  incoming=incoming.filter(function(i){ return i && i.name; });
+  incoming.forEach(function(i){
+    if(!i.id) i.id=uid();
+    ['buyPrice','refurb','listPrice','sellPrice','fees','postage'].forEach(function(f){ i[f]=n(i[f]); });
+  });
+  if(mode==='replace'){ state.items=incoming; }
+  else{
+    var have={}; state.items.forEach(function(i){ have[i.id]=1; });
+    var added=0;
+    incoming.forEach(function(i){ if(!have[i.id]){ state.items.push(i); added++; } });
+    save(); render(); toast('Merged '+added+' new item'+(added===1?'':'s')); return;
+  }
+  save(); render(); toast('Restored '+incoming.length+' items');
+}
+
+function renderMore(){
+  el('s_cur').value=state.settings.currency;
+  el('s_fee').value=state.settings.feePct;
+  var sold=state.items.filter(function(i){ return status(i)==='sold'; }).length;
+  el('dataStats').textContent=state.items.length+' items · '+sold+' sold · '+
+    (state.items.length-sold)+' in stock';
+  el('backupStatus').textContent = state.lastBackup
+    ? 'Last backup: '+fmtDate(state.lastBackup.slice(0,10))+' ('+daysBetween(new Date(state.lastBackup),new Date())+' days ago)'
+    : 'No backup taken yet.';
+}
+
+/* ---------- toast ---------- */
+var toastTimer=null;
+function toast(msg){
+  var t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },1900);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',function(ev){
+  var nav=ev.target.closest('nav button'); if(nav){ go(nav.dataset.v); return; }
+  var chip=ev.target.closest('#periodChips .chip');
+  if(chip){ period=chip.dataset.p;
+    Array.prototype.forEach.call(chip.parentNode.children,function(c){ c.classList.toggle('on',c===chip); });
+    renderDash(); return; }
+  var sc=ev.target.closest('#statusChips .chip');
+  if(sc){ statusFilter=sc.dataset.s;
+    Array.prototype.forEach.call(sc.parentNode.children,function(c){ c.classList.toggle('on',c===sc); });
+    renderItems(); return; }
+  var item=ev.target.closest('.item'); if(item){ openItem(item.dataset.id); return; }
+});
+
+el('search').addEventListener('input',function(){ query=this.value; renderItems(); });
+el('sortBy').addEventListener('change',function(){ sortBy=this.value; renderItems(); });
+
+el('addForm').addEventListener('submit',function(ev){
+  ev.preventDefault();
+  var it={
+    id:uid(), name:el('a_name').value.trim(),
+    category:el('a_category').value.trim(), source:el('a_source').value.trim(),
+    buyDate:el('a_buyDate').value||today(), buyPrice:n(el('a_buyPrice').value),
+    refurb:0, listDate:'', listPrice:n(el('a_listPrice').value),
+    sellDate:'', sellPrice:0, fees:0, postage:0, platform:'', notes:el('a_notes').value
+  };
+  state.items.push(it); save();
+  this.reset(); el('a_buyDate').value=today();
+  toast('Added to stock'); go('items');
+});
+
+el('expJson').addEventListener('click',function(){
+  download('fliptracker-backup-'+stamp()+'.json',JSON.stringify(state,null,2),'application/json');
+  toast('Backup downloaded');
+});
+el('expCsv').addEventListener('click',function(){
+  download('fliptracker-'+stamp()+'.csv',toCSV(),'text/csv;charset=utf-8');
+  toast('CSV downloaded');
+});
+el('impFile').addEventListener('change',function(){
+  var f=this.files&&this.files[0]; if(!f) return;
+  var mode=el('impMode').value;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var txt=String(r.result), incoming=[];
+      if(/\.json$/i.test(f.name)||txt.trim().charAt(0)==='{'||txt.trim().charAt(0)==='['){
+        var d=JSON.parse(txt);
+        incoming=Array.isArray(d)?d:(d.items||[]);
+        if(!Array.isArray(d)&&d.settings&&mode==='replace') state.settings=Object.assign(state.settings,d.settings);
+      } else {
+        var rows=parseCSV(txt); if(!rows.length) throw new Error('empty');
+        var head=rows[0].map(function(h){ return h.trim(); });
+        incoming=rows.slice(1).map(function(r2){
+          var o={}; head.forEach(function(h,i2){ if(FIELDS.indexOf(h)>=0) o[h]=r2[i2]; }); return o;
+        });
+      }
+      if(!incoming.length){ toast('No items found in that file'); return; }
+      if(mode==='replace' && !confirm('Replace all '+state.items.length+' current items with '+incoming.length+' from the file?')) return;
+      importItems(incoming,mode);
+    }catch(e){ console.error(e); toast('Could not read that file'); }
+  };
+  r.readAsText(f);
+  this.value='';
+});
+el('saveSettings').addEventListener('click',function(){
+  state.settings.currency=el('s_cur').value;
+  state.settings.feePct=n(el('s_fee').value);
+  save(); render(); toast('Settings saved');
+});
+el('wipe').addEventListener('click',function(){
+  if(!confirm('Delete all items and settings? Make sure you have a backup first.')) return;
+  if(!confirm('Really delete everything? This cannot be undone.')) return;
+  state={items:[],settings:{currency:state.settings.currency,feePct:state.settings.feePct},lastBackup:null};
+  save(); render(); toast('All data deleted');
+});
+el('loadDemo').addEventListener('click',function(){
+  if(state.items.length && !confirm('Add sample items alongside your '+state.items.length+' existing items?')) return;
+  var d=new Date();
+  function ago(days){ var x=new Date(d.getTime()-days*86400000); return x.getFullYear()+'-'+pad(x.getMonth()+1)+'-'+pad(x.getDate()); }
+  var demo=[
+    {name:'Vintage Pyrex bowl set',category:'Kitchen',source:'Op shop',buyDate:ago(80),buyPrice:12,refurb:0,listDate:ago(76),listPrice:95,sellDate:ago(64),sellPrice:90,fees:4.5,postage:12,platform:'eBay'},
+    {name:'Retro teak sideboard',category:'Furniture',source:'Facebook Marketplace',buyDate:ago(55),buyPrice:120,refurb:35,listDate:ago(45),listPrice:520,sellDate:ago(30),sellPrice:480,fees:0,postage:0,platform:'Facebook Marketplace'},
+    {name:'Nike windbreaker',category:'Clothing',source:'Op shop',buyDate:ago(40),buyPrice:8,refurb:0,listDate:ago(38),listPrice:75,sellDate:ago(22),sellPrice:68,fees:8.2,postage:10.5,platform:'Depop'},
+    {name:'Makita drill',category:'Tools',source:'Garage sale',buyDate:ago(25),buyPrice:45,refurb:0,listDate:ago(20),listPrice:160,sellDate:'',sellPrice:0,fees:0,postage:0,platform:''},
+    {name:'Box of vinyl records',category:'Collectables',source:'Estate sale',buyDate:ago(120),buyPrice:60,refurb:0,listDate:ago(100),listPrice:220,sellDate:'',sellPrice:0,fees:0,postage:0,platform:''},
+    {name:'Le Creuset casserole',category:'Kitchen',source:'Op shop',buyDate:ago(14),buyPrice:25,refurb:0,listDate:ago(10),listPrice:180,sellDate:ago(4),sellPrice:175,fees:0,postage:0,platform:'Facebook Marketplace'},
+    {name:'Kids scooter',category:'Toys',source:'Facebook Marketplace',buyDate:ago(9),buyPrice:30,refurb:5,listDate:'',listPrice:0,sellDate:'',sellPrice:0,fees:0,postage:0,platform:''},
+    {name:'Antique brass lamp',category:'Homewares',source:'Op shop',buyDate:ago(200),buyPrice:35,refurb:20,listDate:ago(180),listPrice:120,sellDate:ago(150),sellPrice:65,fees:0,postage:18,platform:'Gumtree'}
+  ];
+  demo.forEach(function(x){ x.id=uid(); x.notes=''; state.items.push(x); });
+  save(); render(); toast('Sample data loaded'); go('dash');
+});
+
+/* ---------- boot ---------- */
+load();
+el('a_buyDate').value=today();
+go('dash');
+window.FT={state:state,save:save,render:render,profit:profit,outlay:outlay,status:status,toCSV:toCSV};
+})();
+</script>
+</body>
+</html>
